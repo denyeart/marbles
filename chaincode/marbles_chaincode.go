@@ -99,7 +99,7 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) ([]byte, error)
 	}
 
 	var marbles MarblesIndex
-	jsonAsBytes, _ := json.Marshal(marbles) //marshal an emtpy array of strings to clear the index
+	jsonAsBytes, _ := json.Marshal(marbles) //marshal a marbles index struct with emtpy array of strings to clear the index
 	err = stub.PutState(marbleIndexStr, jsonAsBytes)
 	if err != nil {
 		return nil, err
