@@ -41,7 +41,7 @@ type Marble struct {
 	Name  string `json:"name"` //the fieldtags are needed to keep case from bouncing around
 	Color string `json:"color"`
 	Size  int    `json:"size"`
-	User  string `json:"user"`
+	Owner string `json:"owner"`
 }
 
 type Description struct {
@@ -133,8 +133,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) ([]byte, erro
 		return t.Write(stub, args)
 	} else if function == "init_marble" { //create a new marble
 		return t.init_marble(stub, args)
-	} else if function == "set_user" { //change owner of a marble
-		res, err := t.set_user(stub, args)
+	} else if function == "set_owner" { //change owner of a marble
+		res, err := t.set_owner(stub, args)
 		cleanTrades(stub) //lets make sure all open trades are still valid
 		return res, err
 	} else if function == "open_trade" { //create a new trade order
@@ -276,7 +276,7 @@ func (t *SimpleChaincode) init_marble(stub shim.ChaincodeStubInterface, args []s
 	}
 	name := args[0]
 	color := strings.ToLower(args[1])
-	user := strings.ToLower(args[3])
+	owner := strings.ToLower(args[3])
 	size, err := strconv.Atoi(args[2])
 	if err != nil {
 		return nil, errors.New("3rd argument must be a numeric string")
@@ -296,7 +296,7 @@ func (t *SimpleChaincode) init_marble(stub shim.ChaincodeStubInterface, args []s
 	}
 
 	//build the marble json string manually
-	str := `{"name": "` + name + `", "color": "` + color + `", "size": ` + strconv.Itoa(size) + `, "user": "` + user + `"}`
+	str := `{"name": "` + name + `", "color": "` + color + `", "size": ` + strconv.Itoa(size) + `, "owner": "` + owner + `"}`
 	err = stub.PutState(name, []byte(str)) //store marble with id as key
 	if err != nil {
 		return nil, err
@@ -321,9 +321,9 @@ func (t *SimpleChaincode) init_marble(stub shim.ChaincodeStubInterface, args []s
 }
 
 // ============================================================================================================================
-// Set User Permission on Marble
+// Set Owner Permission on Marble
 // ============================================================================================================================
-func (t *SimpleChaincode) set_user(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
+func (t *SimpleChaincode) set_owner(stub shim.ChaincodeStubInterface, args []string) ([]byte, error) {
 	var err error
 
 	//   0       1
@@ -332,7 +332,7 @@ func (t *SimpleChaincode) set_user(stub shim.ChaincodeStubInterface, args []stri
 		return nil, errors.New("Incorrect number of arguments. Expecting 2")
 	}
 
-	fmt.Println("- start set user")
+	fmt.Println("- start set owner")
 	fmt.Println(args[0] + " - " + args[1])
 	marbleAsBytes, err := stub.GetState(args[0])
 	if err != nil {
@@ -340,7 +340,7 @@ func (t *SimpleChaincode) set_user(stub shim.ChaincodeStubInterface, args []stri
 	}
 	res := Marble{}
 	json.Unmarshal(marbleAsBytes, &res) //un stringify it aka JSON.parse()
-	res.User = args[1]                  //change the user
+	res.Owner = args[1]                 //change the owner
 
 	jsonAsBytes, _ := json.Marshal(res)
 	err = stub.PutState(args[0], jsonAsBytes) //rewrite the marble with id as key
@@ -348,7 +348,7 @@ func (t *SimpleChaincode) set_user(stub shim.ChaincodeStubInterface, args []stri
 		return nil, err
 	}
 
-	fmt.Println("- end set user")
+	fmt.Println("- end set owner")
 	return nil, nil
 }
 
@@ -476,8 +476,8 @@ func (t *SimpleChaincode) perform_trade(stub shim.ChaincodeStubInterface, args [
 			if e == nil {
 				fmt.Println("! no errors, proceeding")
 
-				t.set_user(stub, []string{args[2], trades.OpenTrades[i].User}) //change owner of selected marble, closer -> opener
-				t.set_user(stub, []string{marble.Name, args[1]})               //change owner of selected marble, opener -> closer
+				t.set_owner(stub, []string{args[2], trades.OpenTrades[i].User}) //change owner of selected marble, closer -> opener
+				t.set_owner(stub, []string{marble.Name, args[1]})               //change owner of selected marble, opener -> closer
 
 				trades.OpenTrades = append(trades.OpenTrades[:i], trades.OpenTrades[i+1:]...) //remove trade
 				jsonAsBytes, _ := json.Marshal(trades)
@@ -495,10 +495,10 @@ func (t *SimpleChaincode) perform_trade(stub shim.ChaincodeStubInterface, args [
 // ============================================================================================================================
 // findMarble4Trade - look for a matching marble that this user owns and return it
 // ============================================================================================================================
-func findMarble4Trade(stub shim.ChaincodeStubInterface, user string, color string, size int) (m Marble, err error) {
+func findMarble4Trade(stub shim.ChaincodeStubInterface, owner string, color string, size int) (m Marble, err error) {
 	var fail Marble
 	fmt.Println("- start find marble 4 trade")
-	fmt.Println("looking for " + user + ", " + color + ", " + strconv.Itoa(size))
+	fmt.Println("looking for " + owner + ", " + color + ", " + strconv.Itoa(size))
 
 	//get the marble index
 	marblesAsBytes, err := stub.GetState(marbleIndexStr)
@@ -517,10 +517,10 @@ func findMarble4Trade(stub shim.ChaincodeStubInterface, user string, color strin
 		}
 		res := Marble{}
 		json.Unmarshal(marbleAsBytes, &res) //un stringify it aka JSON.parse()
-		//fmt.Println("looking @ " + res.User + ", " + res.Color + ", " + strconv.Itoa(res.Size));
+		//fmt.Println("looking @ " + res.Owner + ", " + res.Color + ", " + strconv.Itoa(res.Size));
 
-		//check for user && color && size
-		if strings.ToLower(res.User) == strings.ToLower(user) && strings.ToLower(res.Color) == strings.ToLower(color) && res.Size == size {
+		//check for owner && color && size
+		if strings.ToLower(res.Owner) == strings.ToLower(owner) && strings.ToLower(res.Color) == strings.ToLower(color) && res.Size == size {
 			fmt.Println("found a marble: " + res.Name)
 			fmt.Println("! end find marble 4 trade")
 			return res, nil
