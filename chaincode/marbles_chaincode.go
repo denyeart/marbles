@@ -307,13 +307,13 @@ func (t *SimpleChaincode) init_marble(stub shim.ChaincodeStubInterface, args []s
 	if err != nil {
 		return nil, errors.New("Failed to get marble index")
 	}
-	var marbleIndex []string
-	json.Unmarshal(marblesAsBytes, &marbleIndex) //un stringify it aka JSON.parse()
+	var marblesIndex MarblesIndex
+	json.Unmarshal(marblesAsBytes, &marblesIndex) //un stringify it aka JSON.parse()
 
 	//append
-	marbleIndex = append(marbleIndex, name) //add marble name to index list
-	fmt.Println("! marble index: ", marbleIndex)
-	jsonAsBytes, _ := json.Marshal(marbleIndex)
+	marblesIndex.Marbles = append(marblesIndex.Marbles, name) //add marble name to index list
+	fmt.Println("! marble index: ", marblesIndex.Marbles)
+	jsonAsBytes, _ := json.Marshal(marblesIndex)
 	err = stub.PutState(marbleIndexStr, jsonAsBytes) //store name of marble
 
 	fmt.Println("- end init marble")
