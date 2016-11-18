@@ -38,15 +38,17 @@ var marbleIndexStr = "_marbleindex" //name for the key/value that will store a l
 var openTradesStr = "_opentrades"   //name for the key/value that will store all open trades
 
 type Marble struct {
-	Name  string `json:"name"` //the fieldtags are needed to keep case from bouncing around
-	Color string `json:"color"`
-	Size  int    `json:"size"`
-	Owner string `json:"owner"`
+	ObjectType string `json:"docType"` //docType is used to distinguish the various types of objects in state database
+	Name       string `json:"name"`    //the fieldtags are needed to keep case from bouncing around
+	Color      string `json:"color"`
+	Size       int    `json:"size"`
+	Owner      string `json:"owner"`
 }
 
 type Description struct {
-	Color string `json:"color"`
-	Size  int    `json:"size"`
+	ObjectType string `json:"docType"` //docType is used to distinguish the various types of objects in state database
+	Color      string `json:"color"`
+	Size       int    `json:"size"`
 }
 
 type AnOpenTrade struct {
@@ -57,11 +59,13 @@ type AnOpenTrade struct {
 }
 
 type AllTrades struct {
+	ObjectType string        `json:"docType"` //docType is used to distinguish the various types of top level objects in state database
 	OpenTrades []AnOpenTrade `json:"open_trades"`
 }
 
 type MarblesIndex struct {
-	Marbles []string `json:"marbles"`
+	ObjectType string   `json:"docType"` //docType is used to distinguish the various types of objects in state database
+	Marbles    []string `json:"marbles"`
 }
 
 // ============================================================================================================================
@@ -99,6 +103,7 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) ([]byte, error)
 	}
 
 	var marbles MarblesIndex
+	marbles.ObjectType = "MarbleIndex"
 	jsonAsBytes, _ := json.Marshal(marbles) //marshal a marbles index struct with emtpy array of strings to clear the index
 	err = stub.PutState(marbleIndexStr, jsonAsBytes)
 	if err != nil {
@@ -106,6 +111,7 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) ([]byte, error)
 	}
 
 	var trades AllTrades
+	trades.ObjectType = "Trades"
 	jsonAsBytes, _ = json.Marshal(trades) //clear the open trade struct
 	err = stub.PutState(openTradesStr, jsonAsBytes)
 	if err != nil {
@@ -207,22 +213,22 @@ func (t *SimpleChaincode) Delete(stub shim.ChaincodeStubInterface, args []string
 	if err != nil {
 		return nil, errors.New("Failed to get marble index")
 	}
-	var marbleIndex []string
-	json.Unmarshal(marblesAsBytes, &marbleIndex) //un stringify it aka JSON.parse()
+	var marblesIndex MarblesIndex
+	json.Unmarshal(marblesAsBytes, &marblesIndex) //un stringify it aka JSON.parse()
 
 	//remove marble from index
-	for i, val := range marbleIndex {
+	for i, val := range marblesIndex.Marbles {
 		fmt.Println(strconv.Itoa(i) + " - looking at " + val + " for " + name)
 		if val == name { //find the correct marble
 			fmt.Println("found marble")
-			marbleIndex = append(marbleIndex[:i], marbleIndex[i+1:]...) //remove it
-			for x := range marbleIndex {                                //debug prints...
-				fmt.Println(string(x) + " - " + marbleIndex[x])
+			marblesIndex.Marbles = append(marblesIndex.Marbles[:i], marblesIndex.Marbles[i+1:]...) //remove it
+			for x := range marblesIndex.Marbles {                                                  //debug prints...
+				fmt.Println(string(x) + " - " + marblesIndex.Marbles[x])
 			}
 			break
 		}
 	}
-	jsonAsBytes, _ := json.Marshal(marbleIndex) //save new index
+	jsonAsBytes, _ := json.Marshal(marblesIndex) //save new index
 	err = stub.PutState(marbleIndexStr, jsonAsBytes)
 	return nil, nil
 }
@@ -296,7 +302,7 @@ func (t *SimpleChaincode) init_marble(stub shim.ChaincodeStubInterface, args []s
 	}
 
 	//build the marble json string manually
-	str := `{"name": "` + name + `", "color": "` + color + `", "size": ` + strconv.Itoa(size) + `, "owner": "` + owner + `"}`
+	str := `{"docType":"Marble",  "name": "` + name + `", "color": "` + color + `", "size": ` + strconv.Itoa(size) + `, "owner": "` + owner + `"}`
 	err = stub.PutState(name, []byte(str)) //store marble with id as key
 	if err != nil {
 		return nil, err
@@ -392,6 +398,7 @@ func (t *SimpleChaincode) open_trade(stub shim.ChaincodeStubInterface, args []st
 		}
 
 		trade_away = Description{}
+		trade_away.ObjectType = "Description"
 		trade_away.Color = args[i]
 		trade_away.Size = will_size
 		fmt.Println("! created trade_away: " + args[i])
@@ -505,13 +512,13 @@ func findMarble4Trade(stub shim.ChaincodeStubInterface, owner string, color stri
 	if err != nil {
 		return fail, errors.New("Failed to get marble index")
 	}
-	var marbleIndex []string
-	json.Unmarshal(marblesAsBytes, &marbleIndex) //un stringify it aka JSON.parse()
+	var marblesIndex MarblesIndex
+	json.Unmarshal(marblesAsBytes, &marblesIndex) //un stringify it aka JSON.parse()
 
-	for i := range marbleIndex { //iter through all the marbles
-		//fmt.Println("looking @ marble name: " + marbleIndex[i]);
+	for i := range marblesIndex.Marbles { //iter through all the marbles
+		//fmt.Println("looking @ marble name: " + marblesIndex.Marbles[i]);
 
-		marbleAsBytes, err := stub.GetState(marbleIndex[i]) //grab this marble
+		marbleAsBytes, err := stub.GetState(marblesIndex.Marbles[i]) //grab this marble
 		if err != nil {
 			return fail, errors.New("Failed to get marble")
 		}
